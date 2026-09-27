@@ -50,7 +50,7 @@ def write_audit_logs(
 - **Feature Branch:** `{context.branch}`
 - **Baseline Prod Branch:** `{context.prod_branch}`
 - **Safety Backup Branch:** `{context.backup_branch or 'None'}`
-- **Restore Commit:** `{context.commit_sha or 'None'}`
+- **Restore Commit:** {f'`{context.commit_sha}`' if context.commit_sha else 'Pending (Manual review & commit)'}
 
 ## Author Status Breakdown
 - **Confirmed Authors (Preserved):** {', '.join(sorted(context.confirmed_authors)) if context.confirmed_authors else 'None specified'}
