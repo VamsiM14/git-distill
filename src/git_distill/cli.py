@@ -138,6 +138,8 @@ def restore(
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Simulate restore actions without modifying files or branches"),
     no_fetch: bool = typer.Option(False, "--no-fetch", "--offline", help="Disable automatic git fetch from remote origin"),
     no_audit: bool = typer.Option(False, "--no-audit", help="Skip writing local audit logs to .gitdistill/"),
+    commit: bool = typer.Option(False, "--commit", help="Automatically commit the staged restore changes (default is manual commit)"),
+    commit_message: Optional[str] = typer.Option(None, "--commit-message", "-m", help="Custom commit message when auto-commit is enabled"),
 ):
     """Execute silver bullet restore: restore unconfirmed files and resolve mixed diffs."""
     try:
@@ -223,11 +225,30 @@ def restore(
 
         all_restored = pure_reverted + mixed_resolved
 
-        # 7. Commit staged changes
+        # 7. Commit or Stage changes for user review
         commit_sha: Optional[str] = None
+        should_commit = commit or (commit_message is not None)
         if all_restored:
-            commit_sha = commit_restore_operation(all_restored)
-            console.print(f"\n[bold green]✅ Committed restore changes:[/bold green] [yellow]{commit_sha[:8]}[/yellow]")
+            if should_commit:
+                commit_sha = commit_restore_operation(all_restored, custom_msg=commit_message)
+                console.print(f"\n[bold green]✅ Committed restore changes:[/bold green] [yellow]{commit_sha[:8]}[/yellow]")
+            else:
+                files_list_str = "\n".join([f"  • [cyan]{f}[/cyan]" for f in all_restored])
+                console.print(
+                    Panel(
+                        f"[bold green]✅ Restored files staged for your review![/bold green]\n\n"
+                        f"The following {len(all_restored)} file(s) are staged in Git index:\n"
+                        f"{files_list_str}\n\n"
+                        f"[bold]Review & Commit Instructions:[/bold]\n"
+                        f"  1. Review staged diff:\n"
+                        f"     [bold yellow]git diff --cached[/bold yellow]\n\n"
+                        f"  2. Commit your distilled changes with your own commit message:\n"
+                        f"     [bold yellow]git commit -m \"<your commit message>\"[/bold yellow]\n\n"
+                        f"[dim]Tip: You can rollback anytime with [bold]git distill undo[/bold][/dim]",
+                        title="Distillation Staged (Manual Review)",
+                        border_style="green"
+                    )
+                )
 
         # 8. Write Structured Audit Logs
         if not no_audit:
