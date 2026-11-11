@@ -1,18 +1,15 @@
 from pathlib import Path
 from typing import Optional, Dict, List, Set
 from collections import defaultdict
-from git_distill.git_ops import run_git, GitError, resolve_baseline_branch
+from git_distill.git_ops import run_git, resolve_baseline_branch
 from git_distill.models import DiscoveryResult, UnmergedCommit, FileDivergence, FileClassification
 
 def fetch_prod_reference(prod_branch: str, cwd: Optional[Path] = None) -> None:
-    """Attempts to fetch latest prod_branch from origin if a remote is configured."""
-    try:
-        remotes = run_git(["remote"], cwd=cwd)
-        if "origin" in remotes.splitlines():
-            clean_ref = prod_branch.replace("origin/", "")
-            run_git(["fetch", "origin", clean_ref], cwd=cwd, check=False)
-    except GitError:
-        pass
+    """Fetches the latest production reference when an origin remote is configured."""
+    remotes = run_git(["remote"], cwd=cwd)
+    if "origin" in remotes.splitlines():
+        clean_ref = prod_branch.replace("origin/", "")
+        run_git(["fetch", "origin", clean_ref], cwd=cwd)
 
 def run_discovery(
     prod_branch: Optional[str] = None,

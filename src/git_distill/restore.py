@@ -44,11 +44,10 @@ def execute_pure_restore(
 
 def commit_restore_operation(
     restored_files: List[str],
-    custom_msg: Optional[str] = None,
     cwd: Optional[Path] = None
 ) -> str:
     """Commits staged changes with standardized CAB metadata."""
-    msg = custom_msg or "revert(silver-bullet): restore unconfirmed files to prod state for CAB release"
+    msg = "revert(silver-bullet): restore unconfirmed files to prod state for CAB release"
     msg += f"\n\nRestored {len(restored_files)} file(s) to prod state:\n"
     for rf in restored_files:
         msg += f" - {rf}\n"

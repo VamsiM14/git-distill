@@ -45,7 +45,7 @@ def test_restore_dry_run_does_not_modify_git_or_files(temp_git_repo):
     branches = subprocess.check_output(["git", "branch"], cwd=repo_path, text=True)
     assert "backup/" not in branches
 
-def test_restore_pure_unready_files_creates_backup_and_stages_without_auto_commit(temp_git_repo):
+def test_restore_pure_unready_files_creates_backup_and_commits(temp_git_repo):
     repo_path = temp_git_repo
 
     # Set up initial state on prod with base_file.py
@@ -76,7 +76,7 @@ def test_restore_pure_unready_files_creates_backup_and_stages_without_auto_commi
         "commit", "-m", "feat: unready work by Bob"
     ], cwd=repo_path, check=True, capture_output=True)
 
-    # Execute restore (default manual commit mode)
+    # Execute restore
     result = runner.invoke(app, [
         "restore",
         "--prod-branch", "prod",
@@ -85,8 +85,7 @@ def test_restore_pure_unready_files_creates_backup_and_stages_without_auto_commi
     ])
     assert result.exit_code == 0
     assert "Restoring" in result.stdout or "Restored" in result.stdout
-    assert "staged for your review" in result.stdout
-    assert "git commit -m" in result.stdout
+    assert "Committed restore changes" in result.stdout
 
     # Verify backup branch created
     branches = subprocess.check_output(["git", "branch"], cwd=repo_path, text=True)
@@ -102,49 +101,6 @@ def test_restore_pure_unready_files_creates_backup_and_stages_without_auto_commi
     assert conf_file.exists()
     assert conf_file.read_text() == "def confirmed(): pass\n"
 
-    # Verify NO automatic commit was made (HEAD is still Bob's commit)
+    # Verify Git commit created with standardized message
     head_commit_msg = subprocess.check_output(["git", "log", "-1", "--pretty=%s"], cwd=repo_path, text=True).strip()
-    assert head_commit_msg == "feat: unready work by Bob"
-
-    # Verify restored files are staged in Git index
-    diff_cached = subprocess.check_output(["git", "diff", "--cached", "--name-only"], cwd=repo_path, text=True).strip().splitlines()
-    assert "base_file.py" in diff_cached
-    assert "unready_feature.py" in diff_cached
-
-    # Verify user can commit manually with custom message
-    subprocess.run(["git", "commit", "-m", "chore(release): custom CAB triage commit"], cwd=repo_path, check=True)
-    new_commit_msg = subprocess.check_output(["git", "log", "-1", "--pretty=%s"], cwd=repo_path, text=True).strip()
-    assert new_commit_msg == "chore(release): custom CAB triage commit"
-
-
-def test_restore_with_explicit_commit_flag(temp_git_repo):
-    repo_path = temp_git_repo
-
-    # Set up initial state on prod
-    base_file = repo_path / "base.py"
-    base_file.write_text("V = 1\n")
-    subprocess.run(["git", "add", "base.py"], cwd=repo_path, check=True, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "feat: base"], cwd=repo_path, check=True, capture_output=True)
-
-    # Feature branch with unready change
-    subprocess.run(["git", "checkout", "-b", "feature/auto-commit-test"], cwd=repo_path, check=True, capture_output=True)
-    base_file.write_text("V = 2\n")
-    subprocess.run(["git", "add", "base.py"], cwd=repo_path, check=True, capture_output=True)
-    subprocess.run([
-        "git", "-c", "user.name=Bob Vance", "-c", "user.email=bob@example.com",
-        "commit", "-m", "feat: bob change"
-    ], cwd=repo_path, check=True, capture_output=True)
-
-    # Execute restore with --commit and -m
-    result = runner.invoke(app, [
-        "restore",
-        "--prod-branch", "prod",
-        "--unready", "Bob Vance",
-        "--commit",
-        "-m", "revert: custom automated message"
-    ])
-    assert result.exit_code == 0
-    assert "Committed restore changes" in result.stdout
-
-    last_commit_msg = subprocess.check_output(["git", "log", "-1", "--pretty=%s"], cwd=repo_path, text=True).strip()
-    assert "revert: custom automated message" in last_commit_msg
+    assert head_commit_msg == "revert(silver-bullet): restore unconfirmed files to prod state for CAB release"

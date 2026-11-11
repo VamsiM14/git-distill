@@ -1,7 +1,10 @@
 import subprocess
 from pathlib import Path
+import pytest
 from typer.testing import CliRunner
 from git_distill.cli import app
+from git_distill import discovery
+from git_distill.git_ops import GitError
 
 runner = CliRunner()
 
@@ -54,3 +57,15 @@ def test_scan_with_offline_flag(temp_git_repo):
     subprocess.run(["git", "checkout", "-b", "feature/offline-test"], cwd=repo_path, check=True, capture_output=True)
     result = runner.invoke(app, ["scan", "--prod-branch", "prod", "--no-fetch"])
     assert result.exit_code == 0
+
+
+def test_fetch_failure_is_not_silently_ignored(monkeypatch):
+    def failing_git(args, cwd=None):
+        if args == ["remote"]:
+            return "origin"
+        raise GitError("fetch failed")
+
+    monkeypatch.setattr(discovery, "run_git", failing_git)
+
+    with pytest.raises(GitError, match="fetch failed"):
+        discovery.fetch_prod_reference("origin/prod")

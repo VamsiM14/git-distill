@@ -43,7 +43,7 @@ Once distilled, the branch merges cleanly into your target release pipeline.
 - 🔀 **Visual Diff / Merge Editor Integration**: Launches VS Code side-by-side diff view with the exact baseline snapshot for mixed files.
 - ⏪ **One-Command Undo**: Instantly rolls back the branch to the pre-restore snapshot with `git-distill undo` (or `git distill undo`).
 - 📝 **Structured Audit Logs**: Automatically saves JSON (`.gitdistill/audit-<timestamp>.json`) and human-readable Markdown (`.gitdistill/audit-<timestamp>.md`) logs.
-- 💬 **User-Controlled Commits**: Stages distilled changes in Git index so you can review `git diff --cached` and provide your own commit message (or use `--commit` for automated commits).
+- 💬 **Standardized Revert Commits**: Automatically commits changes with conventional CAB metadata (`revert(silver-bullet): ...`).
 - 🔌 **Native Git Subcommand**: Installs as both `git-distill` and `gitdistill` so you can use standard `git distill <cmd>` syntax.
 
 ---
@@ -100,26 +100,14 @@ Run the distillation operation. `git-distill` automatically:
 - Creates safety backup branch `backup/feature/checkout-v2-YYYYMMDD_HHMMSS`
 - Restores 100% unready files back to baseline state
 - Opens VS Code Diff UI for mixed files so you can keep ready hunks and discard unready lines
-- Stages all restored and resolved files in your Git index
+- Stages resolved files and creates an atomic Git commit
 - Generates JSON and Markdown audit logs under `.gitdistill/`
 
 ```bash
 git distill restore --confirmed "Alice Miller" --unready "Bob Vance"
 ```
 
-### 6. Review Staged Diff & Commit
-Inspect the staged changes and commit with your own message:
-```bash
-# Review the staged diff
-git diff --cached
-
-# Commit with your custom release/triage message
-git commit -m "revert(release): exclude unconfirmed feature changes for CAB release"
-```
-
-> **Note:** If you prefer automated commits in scripts or CI, pass `--commit` (with optional `-m "message"`).
-
-### 7. (Optional) Rollback
+### 6. (Optional) Rollback
 If you need to revert the entire operation back to the pre-restore state:
 ```bash
 git distill undo
@@ -160,7 +148,7 @@ Interactively preview and verify classification status for all touched files.
 ---
 
 ### `restore`
-Executes surgical restoration of unready files, opens diff editor for mixed files, and stages changes for review.
+Executes full restoration of unready files, opens diff editor for mixed files, and commits the result.
 
 | Option | Flag | Description | Default |
 | :--- | :--- | :--- | :--- |
@@ -171,8 +159,6 @@ Executes surgical restoration of unready files, opens diff editor for mixed file
 | `--unready-files` | | Comma-separated list of unready file paths | `None` |
 | `--diff-editor` | | Custom diff editor command (e.g. `code --wait --diff`) | `None` |
 | `--dry-run` | `-n` | Preview planned actions without modifying filesystem | `False` |
-| `--commit` | | Automatically commit the staged restore changes | `False` (manual commit) |
-| `--commit-message` | `-m` | Custom commit message when auto-commit is enabled | `None` |
 | `--bypass-branch-check` | `--force` | Bypass `feature/*` branch safety guard | `False` |
 
 ---

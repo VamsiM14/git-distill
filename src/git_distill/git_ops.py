@@ -27,6 +27,21 @@ def run_git(args: List[str], cwd: Optional[Path] = None, check: bool = True) -> 
     except subprocess.CalledProcessError as e:
         raise GitError(f"Git command failed: git {' '.join(args)}\n{e.stderr.strip()}") from e
 
+def run_git_bytes(args: List[str], cwd: Optional[Path] = None) -> bytes:
+    """Runs Git and returns stdout without text decoding or whitespace changes."""
+    git_bin = get_git_executable()
+    try:
+        res = subprocess.run(
+            [git_bin] + args,
+            cwd=cwd,
+            capture_output=True,
+            check=True,
+        )
+        return res.stdout
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode(errors="replace").strip()
+        raise GitError(f"Git command failed: git {' '.join(args)}\n{stderr}") from e
+
 def get_current_branch(cwd: Optional[Path] = None) -> str:
     return run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
 

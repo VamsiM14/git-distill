@@ -5,7 +5,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 from typing import Optional
-from git_distill.git_ops import run_git, GitError
+from git_distill.git_ops import run_git, run_git_bytes, GitError
 
 def launch_diff_editor(
     prod_branch: str,
@@ -24,11 +24,11 @@ def launch_diff_editor(
         
         # Write exact raw bytes from git show using git_ops
         try:
-            show_output = run_git(["show", f"{prod_branch}:{file_path}"], cwd=cwd)
-            prod_tmp_file.write_text(show_output)
+            show_output = run_git_bytes(["show", f"{prod_branch}:{file_path}"], cwd=cwd)
+            prod_tmp_file.write_bytes(show_output)
         except GitError:
             # File did not exist in prod -> write empty file
-            prod_tmp_file.write_text("")
+            prod_tmp_file.write_bytes(b"")
 
         target_file = (cwd / file_path) if cwd else Path(file_path)
 
@@ -48,7 +48,7 @@ def launch_diff_editor(
             raise GitError(f"Diff editor '{editor_tokens[0]}' exited with error code {res.returncode}")
 
         # Stage resolved file
-        run_git(["add", file_path], cwd=cwd)
+        run_git(["add", "--", file_path], cwd=cwd)
 
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
