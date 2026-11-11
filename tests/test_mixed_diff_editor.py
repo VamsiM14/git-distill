@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from typer.testing import CliRunner
 from git_distill.cli import app
+from git_distill.editor import launch_diff_editor
 
 runner = CliRunner()
 
@@ -77,3 +78,28 @@ def test_mixed_file_interactive_resolution_with_mock_editor(temp_git_repo, monke
     assert "alice_ready" in final_content
     assert "bob_unready" not in final_content
     mock_dir.cleanup()
+
+
+def test_diff_editor_receives_exact_binary_prod_snapshot(temp_git_repo):
+    repo_path = temp_git_repo
+    binary_file = repo_path / "asset.bin"
+    prod_content = b"\x00baseline\xff\n\n"
+    binary_file.write_bytes(prod_content)
+    subprocess.run(["git", "add", "asset.bin"], cwd=repo_path, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "feat: binary baseline"], cwd=repo_path, check=True, capture_output=True)
+
+    subprocess.run(["git", "checkout", "-b", "feature/binary-diff"], cwd=repo_path, check=True, capture_output=True)
+    binary_file.write_bytes(b"\x00feature\xfe\n")
+
+    with tempfile.TemporaryDirectory() as mock_dir:
+        mock_editor = Path(mock_dir) / "assert_binary_snapshot.py"
+        mock_editor.write_text(
+            "import pathlib, sys\n"
+            "assert pathlib.Path(sys.argv[1]).read_bytes() == b'\\x00baseline\\xff\\n\\n'\n"
+        )
+        launch_diff_editor(
+            "prod",
+            "asset.bin",
+            custom_editor=f"{sys.executable} {mock_editor}",
+            cwd=repo_path,
+        )
